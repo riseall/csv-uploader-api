@@ -11,7 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('uploaded_file_records', function (Blueprint $table) {
+        Schema::create('uploaded_file_records_metd', function (Blueprint $table) {
             $table->id();
             $table->string('data_type'); // Tipe data (master_product, stock_metd, dll.)
             $table->string('original_file_name'); // Nama file asli
@@ -27,6 +27,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('uploaded_file_records');
+        Schema::dropIfExists('uploaded_file_records_metd');
     }
 };

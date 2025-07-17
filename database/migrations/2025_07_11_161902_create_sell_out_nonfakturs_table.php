@@ -13,7 +13,7 @@ class CreateSellOutNonfaktursTable extends Migration
      */
     public function up()
     {
-        Schema::create('sell_out_nonfakturs', function (Blueprint $table) {
+        Schema::create('selling_out_metd_non_faktur', function (Blueprint $table) {
             $table->id();
             $table->string('kode_cbg_ph')->nullable();
             $table->string('cbg_ph')->nullable();
@@ -62,6 +62,6 @@ class CreateSellOutNonfaktursTable extends Migration
      */
     public function down()
     {
-        Schema::dropIfExists('sell_out_nonfakturs');
+        Schema::dropIfExists('selling_out_metd_non_faktur');
     }
 }

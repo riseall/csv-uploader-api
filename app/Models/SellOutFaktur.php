@@ -9,7 +9,7 @@ class SellOutFaktur extends Model
 {
     use HasFactory;
 
-    protected $table = 'sell_out_fakturs';
+    protected $table = 'selling_out_metd_faktur';
 
     protected $fillable = [
         'kode_cbg_ph',

@@ -9,7 +9,7 @@ class MasterProduct extends Model
 {
     use HasFactory;
 
-    protected $table = 'master_products';
+    protected $table = 'mst_prod_metd';
 
     protected $fillable = [
         'kode_brg_metd',

@@ -13,7 +13,7 @@ class CreateStockMetdsTable extends Migration
      */
     public function up()
     {
-        Schema::create('stock_metds', function (Blueprint $table) {
+        Schema::create('stock_ph_in_metd', function (Blueprint $table) {
             $table->id();
             $table->string('kode_brg_metd')->nullable();
             $table->string('kode_brg_ph')->nullable();
@@ -48,6 +48,6 @@ class CreateStockMetdsTable extends Migration
      */
     public function down()
     {
-        Schema::dropIfExists('stock_metds');
+        Schema::dropIfExists('stock_ph_in_metd');
     }
 }

@@ -9,7 +9,7 @@ class StockMetd extends Model
 {
     use HasFactory;
 
-    protected $table = 'stock_metds';
+    protected $table = 'stock_ph_in_metd';
 
     protected $fillable = [
         'kode_brg_metd',

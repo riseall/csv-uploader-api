@@ -21,5 +21,5 @@ class UploadedFileRecord extends Model
         'upload_date' => 'date',
     ];
 
-    protected $table = 'uploaded_file_records';
+    protected $table = 'uploaded_file_records_metd';
 }

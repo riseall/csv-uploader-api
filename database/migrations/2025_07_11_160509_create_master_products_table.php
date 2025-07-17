@@ -13,7 +13,7 @@ class CreateMasterProductsTable extends Migration
      */
     public function up()
     {
-        Schema::create('master_products', function (Blueprint $table) {
+        Schema::create('mst_prod_metd', function (Blueprint $table) {
             $table->id();
             $table->string('kode_brg_metd')->unique();
             $table->string('kode_brg_ph')->unique();
@@ -33,6 +33,6 @@ class CreateMasterProductsTable extends Migration
      */
     public function down()
     {
-        Schema::dropIfExists('master_products');
+        Schema::dropIfExists('mst_prod_metd');
     }
 }

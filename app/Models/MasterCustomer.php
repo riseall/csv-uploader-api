@@ -9,7 +9,7 @@ class MasterCustomer extends Model
 {
     use HasFactory;
 
-    protected $table = 'master_customers';
+    protected $table = 'mst_cust_metd';
 
     protected $fillable = [
         'id_outlet',

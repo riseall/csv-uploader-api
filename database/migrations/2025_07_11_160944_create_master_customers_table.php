@@ -13,7 +13,7 @@ class CreateMasterCustomersTable extends Migration
      */
     public function up()
     {
-        Schema::create('master_customers', function (Blueprint $table) {
+        Schema::create('mst_cust_metd', function (Blueprint $table) {
             $table->id();
             $table->string('id_outlet')->unique();
             $table->string('nama_outlet')->nullable();
@@ -35,6 +35,6 @@ class CreateMasterCustomersTable extends Migration
      */
     public function down()
     {
-        Schema::dropIfExists('master_customers');
+        Schema::dropIfExists('mst_cust_metd');
     }
 }
