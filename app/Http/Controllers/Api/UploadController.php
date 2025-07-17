@@ -10,14 +10,139 @@ use App\Models\SellOutFaktur;
 use App\Models\SellOutNonfaktur;
 use App\Models\UploadedFileRecord;
 use Carbon\Carbon;
+use Carbon\Exceptions\InvalidFormatException; // Import Carbon Exception
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Storage; // Import Storage facade
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 
 class UploadController extends Controller
 {
+    private static $expectedHeaders = [
+        'Master Product' => [
+            'kode_brg_metd',
+            'kode_brg_ph',
+            'nama_brg_metd',
+            'nama_brg_ph',
+            'satuan_metd',
+            'satuan_ph',
+            'konversi_qty'
+        ],
+        'Master Customer' => [
+            'id_outlet',
+            'nama_outlet',
+            'cbg_ph',
+            'kode_cbg_ph',
+            'cbg_metd',
+            'alamat_1',
+            'alamat_2',
+            'alamat_3',
+            'no_telp'
+        ],
+        'Stock METD' => [
+            'kode_brg_metd',
+            'kode_brg_ph',
+            'nama_brg_metd',
+            'nama_brg_phapros',
+            'plant',
+            'nama_plant',
+            'suhu_gudang_penyimpanan',
+            'batch_phapros',
+            'expired_date',
+            'satuan_metd',
+            'satuan_phapros',
+            'harga_beli',
+            'konversi_qty',
+            'qty_onhand_metd',
+            'qty_selleable',
+            'qty_non_selleable',
+            'qty_intransit_in',
+            'nilai_intransit_in',
+            'qty_intransit_pass',
+            'nilai_intransit_pass',
+            'tgl_terima_brg',
+            'source_beli'
+        ],
+        'Sellout Faktur' => [
+            'kode_cbg_ph',
+            'cbg_ph',
+            'tgl_faktur',
+            'id_outlet',
+            'no_faktur',
+            'no_invoice',
+            'status',
+            'nama_outlet',
+            'alamat_1',
+            'alamat_2',
+            'alamat_3',
+            'kode_brg_metd',
+            'kode_brg_phapros',
+            'nama_brg_metd',
+            'satuan_metd',
+            'satuan_ph',
+            'qty',
+            'konversi_qty',
+            'hna',
+            'diskon_dimuka_persen',
+            'diskon_dimuka_amount',
+            'diskon_persen_1',
+            'diskon_ammount_1',
+            'diskon_persen_2',
+            'diskon_ammount_2',
+            'total_diskon_persen',
+            'total_diskon_ammount',
+            'netto',
+            'brutto',
+            'ppn',
+            'jumlah',
+            'segmen',
+            'so_number',
+            'no_shipper',
+            'no_po',
+            'batch_ph',
+            'exp_date'
+        ],
+        'Sellout Nonfaktur' => [
+            'kode_cbg_ph',
+            'cbg_ph',
+            'tgl_transaksi',
+            'id_outlet',
+            'no_invoice',
+            'status',
+            'nama_outlet',
+            'alamat_1',
+            'alamat_2',
+            'alamat_3',
+            'kode_brg_metd',
+            'kode_brg_phapros',
+            'nama_brg_metd',
+            'satuan_metd',
+            'satuan_ph',
+            'qty',
+            'konversi_qty',
+            'hna',
+            'diskon_dimuka_persen',
+            'diskon_dimuka_amount',
+            'diskon_persen_1',
+            'diskon_ammount_1',
+            'diskon_persen_2',
+            'diskon_ammount_2',
+            'total_diskon_persen',
+            'total_diskon_ammount',
+            'netto',
+            'brutto',
+            'ppn',
+            'jumlah',
+            'segmen',
+            'so_number',
+            'no_shipper',
+            'no_po',
+            'batch_ph',
+            'exp_date'
+        ],
+    ];
+
     /**
      * Menerima file CSV dari frontend, menyimpannya ke storage, dan memproses data.
      *
@@ -26,10 +151,9 @@ class UploadController extends Controller
      */
     public function receiveData(Request $request)
     {
-        // Validasi input dari Server Public (frontend)
         $validator = Validator::make($request->all(), [
             'data_type' => 'required|in:Master Product,Master Customer,Stock METD,Sellout Faktur,Sellout Nonfaktur',
-            'csv_file' => 'required|file|mimes:csv,txt|max:2048', // Validasi file yang diupload
+            'csv_file' => 'required|file|mimes:csv,txt|max:2048',
         ]);
 
         if ($validator->fails()) {
@@ -48,57 +172,73 @@ class UploadController extends Controller
 
         DB::beginTransaction();
         try {
-            // 1. Simpan file ke storage (misalnya, folder 'public/uploads/csv')
-            // Buat folder berdasarkan tipe data dan tanggal untuk organisasi yang lebih baik
             $folderPath = 'uploads/' . $dataType . '/' . $uploadDate;
             $fileName = time() . '_' . $uploadedFile->getClientOriginalName();
-            $filePath = $uploadedFile->storeAs($folderPath, $fileName, 'public'); // Simpan ke disk 'public'
+            $filePath = $uploadedFile->storeAs($folderPath, $fileName, 'public');
 
-            // Periksa apakah file berhasil disimpan
             if (!$filePath) {
                 throw new \Exception('Gagal menyimpan file ke storage.');
             }
 
-            // 2. Simpan record file yang diupload ke tabel uploaded_file_records
             UploadedFileRecord::create([
                 'data_type' => $dataType,
                 'original_file_name' => $uploadedFile->getClientOriginalName(),
                 'mime_type' => $uploadedFile->getClientMimeType(),
-                'file_path' => $filePath, // Simpan path file yang disimpan
+                'file_path' => $filePath,
                 'upload_date' => $uploadDate,
                 'created_at' => Carbon::now(),
                 'updated_at' => Carbon::now(),
             ]);
 
-            // 3. Baca konten file yang baru disimpan untuk diproses
             $fileContent = Storage::disk('public')->get($filePath);
-
-            // 4. Parse konten CSV yang diterima untuk mendapatkan payload data
             $parsedPayload = [];
-            $rows = explode("\n", $fileContent); // Pisahkan baris
+            $rows = explode("\n", $fileContent);
 
-            // Ambil header dari baris pertama
             $header = [];
             if (!empty($rows)) {
-                // Perhatikan: Delimiter yang digunakan adalah ';' sesuai dengan parsing di frontend asli Anda
-                // Jika CSV Anda menggunakan koma, ubah menjadi ','
                 $header = str_getcsv(array_shift($rows), ';');
+                $header = array_map('trim', $header);
             }
 
             if (empty($header)) {
                 throw new \Exception('Header CSV tidak dapat dibaca atau kosong dari file yang disimpan.');
             }
 
+            if (!isset(self::$expectedHeaders[$dataType])) {
+                throw new \Exception('Tipe data tidak dikenal untuk validasi header: ' . $dataType);
+            }
+
+            $expected = self::$expectedHeaders[$dataType];
+            $sortedHeader = $header;
+            $sortedExpected = $expected;
+            sort($sortedHeader);
+            sort($sortedExpected);
+
+            if ($sortedHeader !== $sortedExpected) {
+                $missingHeaders = array_diff($expected, $header);
+                $unexpectedHeaders = array_diff($header, $expected);
+
+                $errorMessage = "File CSV tidak sesuai dengan tipe data yang dipilih ({$dataType}).";
+                if (!empty($missingHeaders)) {
+                    $errorMessage .= " Header yang hilang: [" . implode(', ', $missingHeaders) . "].";
+                }
+                if (!empty($unexpectedHeaders)) {
+                    $errorMessage .= " Header yang tidak diharapkan: [" . implode(', ', $unexpectedHeaders) . "].";
+                }
+                $errorMessage .= " Header yang diharapkan: [" . implode(', ', self::$expectedHeaders[$dataType]) . "]. Header yang ditemukan: [" . implode(', ', $header) . "].";
+
+                throw new \Exception($errorMessage);
+            }
+
+            // Memproses setiap baris data
             foreach ($rows as $rowString) {
-                $rowString = trim($rowString); // Hapus spasi di awal/akhir baris
+                $rowString = trim($rowString);
                 if (empty($rowString)) {
-                    continue; // Lewati baris kosong
+                    continue;
                 }
 
-                // Perhatikan: Delimiter yang digunakan adalah ';'
                 $row = str_getcsv($rowString, ';');
 
-                // Cek jika jumlah kolom tidak cocok dengan header, lewati baris ini
                 if (count($row) !== count($header)) {
                     Log::warning("Baris dilewati karena jumlah kolom tidak cocok setelah parsing dari file yang disimpan: " . $rowString);
                     continue;
@@ -110,12 +250,9 @@ class UploadController extends Controller
                 throw new \Exception('File CSV kosong atau format tidak valid setelah parsing dari file yang disimpan.');
             }
 
-            // 5. Panggil logika untuk membersihkan data lama di tabel spesifik
             $this->clearExistingData($dataType, $uploadDate);
 
-            // 6. Loop melalui data dari payload yang diparse dan simpan ke database
             foreach ($parsedPayload as $data) {
-                // Pastikan nilai null untuk kolom yang tidak ada di CSV
                 switch ($dataType) {
                     case 'Master Product':
                         MasterProduct::create([
@@ -261,13 +398,59 @@ class UploadController extends Controller
                 }
             }
 
-            DB::commit(); // Jika semua berhasil, simpan perubahan
+            DB::commit();
 
             return response()->json(['message' => 'Data ' . $dataType . ' berhasil disimpan ke database.'], 200);
         } catch (\Exception $e) {
-            DB::rollBack(); // Batalkan semua query jika terjadi error
+            DB::rollBack();
             Log::error('Gagal menyimpan data dari API: ' . $e->getMessage() . ' at line ' . $e->getLine());
-            return response()->json(['message' => 'Terjadi kesalahan internal saat menyimpan data. Mungkin ada data duplicat atau tidak valid'], 500);
+
+            // Deteksi pesan error duplikat entry SQL
+            $duplicateEntryRegex = '/Duplicate entry \'([^\']+)\' for key \'([^\']+)\'/';
+            if (preg_match($duplicateEntryRegex, $e->getMessage(), $matches)) {
+                $duplicateValue = $matches[1];
+                $keyName = $matches[2];
+                $fieldName = 'data';
+                if (str_contains($keyName, 'kode_brg_metd_unique')) {
+                    $fieldName = 'Kode Barang';
+                } elseif (str_contains($keyName, 'master_products')) {
+                    $fieldName = 'Master Product';
+                } elseif (str_contains($keyName, 'master_customers')) {
+                    $fieldName = 'Master Customer';
+                }
+                $userMessage = "Gagal mengunggah data. Terdapat data duplikat untuk '{$duplicateValue}' pada kolom {$fieldName}. Pastikan {$fieldName} unik.";
+                return response()->json(['message' => $userMessage], 500);
+            }
+
+            // Deteksi pesan error format tanggal Carbon
+            if ($e instanceof InvalidFormatException) {
+                $errorColumn = 'tanggal'; // Default
+                // Coba identifikasi kolom yang menyebabkan error berdasarkan pesan exception atau konteks
+                if (str_contains($e->getMessage(), 'expired_date')) {
+                    $errorColumn = 'expired_date';
+                } elseif (str_contains($e->getMessage(), 'tgl_terima_brg')) {
+                    $errorColumn = 'tgl_terima_brg';
+                } elseif (str_contains($e->getMessage(), 'tgl_faktur')) {
+                    $errorColumn = 'tgl_faktur';
+                } elseif (str_contains($e->getMessage(), 'exp_date')) {
+                    $errorColumn = 'exp_date';
+                } elseif (str_contains($e->getMessage(), 'tgl_transaksi')) {
+                    $errorColumn = 'tgl_transaksi';
+                }
+
+                // Pesan error yang lebih jelas untuk ambiguitas YYYY-MM-DD
+                $userMessage = "Format tanggal tidak valid pada kolom '{$errorColumn}'. Pastikan format yang digunakan adalah 'Tahun-Bulan-Hari' (YYYY-MM-DD), contoh: 2025-07-15. Periksa kembali urutan Bulan dan Hari.";
+                return response()->json(['message' => $userMessage], 422);
+            }
+
+            // Tangani error header CSV
+            if (str_contains($e->getMessage(), 'Header CSV tidak sesuai')) {
+                return response()->json(['message' => $e->getMessage()], 422);
+            }
+
+            // Error umum lainnya
+            $userMessage = 'Terjadi kesalahan internal saat menyimpan data. Mungkin ada data yang tidak sesuai format yang diberikan.';
+            return response()->json(['message' => $userMessage], 500);
         }
     }
 
@@ -283,36 +466,26 @@ class UploadController extends Controller
         switch ($dataType) {
             case 'Master Product':
                 MasterProduct::truncate();
+                Log::info('Truncated all Master Product data.');
                 break;
             case 'Master Customer':
                 MasterCustomer::truncate();
+                Log::info('Truncated all Master Customer data.');
                 break;
             case 'Stock METD':
                 StockMetd::whereDate('created_at', $uploadDate)->delete();
+                Log::info('Deleted Stock METD data for date: ' . $uploadDate);
                 break;
             case 'Sellout Faktur':
                 SellOutFaktur::whereDate('created_at', $uploadDate)->delete();
+                Log::info('Deleted Sellout Faktur data for date: ' . $uploadDate);
                 break;
             case 'Sellout Nonfaktur':
                 SellOutNonfaktur::whereDate('created_at', $uploadDate)->delete();
+                Log::info('Deleted Sellout Nonfaktur data for date: ' . $uploadDate);
                 break;
         }
     }
-
-    /**
-     * Menampilkan daftar semua file yang telah diupload.
-     *
-     * @return \Illuminate\View\View
-     */
-    // public function showData()
-    // {
-    //     $mstrProd = MasterProduct::orderBy('created_at', 'desc')->get();
-    //     $mstrCust = MasterCustomer::orderBy('created_at', 'desc')->get();
-    //     $stock = StockMetd::orderBy('created_at', 'desc')->get();
-    //     $faktur = SellOutFaktur::orderBy('created_at', 'desc')->get();
-    //     $nonfaktur = SellOutNonfaktur::orderBy('created_at', 'desc')->get();
-    //     return view('data', compact('mstrProd', 'mstrCust', 'stock', 'faktur', 'nonfaktur'));
-    // }
 
     /**
      * Menampilkan detail data CSV yang sudah diparse dari file yang disimpan.
@@ -328,25 +501,20 @@ class UploadController extends Controller
             return redirect()->route('uploaded-files.index')->with('error', 'File tidak ditemukan.');
         }
 
-        // Baca konten file dari storage
         $fileContent = Storage::disk('public')->get($fileRecord->file_path);
-
         $parsedData = [];
         $headers = [];
 
         if ($fileContent) {
             $rows = explode("\n", $fileContent);
             if (!empty($rows)) {
-                // Perhatikan: Delimiter yang digunakan adalah ';'
                 $headers = str_getcsv(array_shift($rows), ';');
             }
-
             foreach ($rows as $rowString) {
                 $rowString = trim($rowString);
                 if (empty($rowString)) {
                     continue;
                 }
-                // Perhatikan: Delimiter yang digunakan adalah ';'
                 $row = str_getcsv($rowString, ';');
 
                 if (count($row) === count($headers)) {
