@@ -70,8 +70,8 @@ class UploadController extends Controller
             'tgl_faktur',
             'id_outlet',
             'no_faktur',
-            'no_invoice',
-            'status',
+            // 'no_invoice',
+            // 'status',
             'nama_outlet',
             'alamat_1',
             'alamat_2',
@@ -84,8 +84,8 @@ class UploadController extends Controller
             'qty',
             'konversi_qty',
             'hna',
-            'diskon_dimuka_persen',
-            'diskon_dimuka_amount',
+            // 'diskon_dimuka_persen',
+            // 'diskon_dimuka_amount',
             'diskon_persen_1',
             'diskon_ammount_1',
             'diskon_persen_2',
@@ -108,8 +108,8 @@ class UploadController extends Controller
             'cbg_ph',
             'tgl_transaksi',
             'id_outlet',
-            'no_invoice',
-            'status',
+            // 'no_invoice',
+            // 'status',
             'nama_outlet',
             'alamat_1',
             'alamat_2',
@@ -122,8 +122,8 @@ class UploadController extends Controller
             'qty',
             'konversi_qty',
             'hna',
-            'diskon_dimuka_persen',
-            'diskon_dimuka_amount',
+            // 'diskon_dimuka_persen',
+            // 'diskon_dimuka_amount',
             'diskon_persen_1',
             'diskon_ammount_1',
             'diskon_persen_2',
@@ -317,8 +317,8 @@ class UploadController extends Controller
                             'tgl_faktur' => isset($data['tgl_faktur']) && $data['tgl_faktur'] ? Carbon::createFromFormat('Y-m-d', $data['tgl_faktur'])->toDateString() : null,
                             'id_outlet' => $data['id_outlet'] ?? null,
                             'no_faktur' => $data['no_faktur'] ?? null,
-                            'no_invoice' => $data['no_invoice'] ?? null,
-                            'status' => $data['status'] ?? null,
+                            // 'no_invoice' => $data['no_invoice'] ?? null,
+                            // 'status' => $data['status'] ?? null,
                             'nama_outlet' => $data['nama_outlet'] ?? null,
                             'alamat_1' => $data['alamat_1'] ?? null,
                             'alamat_2' => $data['alamat_2'] ?? null,
@@ -331,8 +331,8 @@ class UploadController extends Controller
                             'qty' => $data['qty'] ?? null,
                             'konversi_qty' => $data['konversi_qty'] ?? null,
                             'hna' => $data['hna'] ?? null,
-                            'diskon_dimuka_persen' => $data['diskon_dimuka_persen'] ?? null,
-                            'diskon_dimuka_amount' => $data['diskon_dimuka_amount'] ?? null,
+                            // 'diskon_dimuka_persen' => $data['diskon_dimuka_persen'] ?? null,
+                            // 'diskon_dimuka_amount' => $data['diskon_dimuka_amount'] ?? null,
                             'diskon_persen_1' => $data['diskon_persen_1'] ?? null,
                             'diskon_ammount_1' => $data['diskon_ammount_1'] ?? null,
                             'diskon_persen_2' => $data['diskon_persen_2'] ?? null,
@@ -359,8 +359,8 @@ class UploadController extends Controller
                             'cbg_ph' => $data['cbg_ph'] ?? null,
                             'tgl_transaksi' => isset($data['tgl_transaksi']) && $data['tgl_transaksi'] ? Carbon::createFromFormat('Y-m-d', $data['tgl_transaksi'])->toDateString() : null,
                             'id_outlet' => $data['id_outlet'] ?? null,
-                            'no_invoice' => $data['no_invoice'] ?? null,
-                            'status' => $data['status'] ?? null,
+                            // 'no_invoice' => $data['no_invoice'] ?? null,
+                            // 'status' => $data['status'] ?? null,
                             'nama_outlet' => $data['nama_outlet'] ?? null,
                             'alamat_1' => $data['alamat_1'] ?? null,
                             'alamat_2' => $data['alamat_2'] ?? null,
@@ -373,8 +373,8 @@ class UploadController extends Controller
                             'qty' => $data['qty'] ?? null,
                             'konversi_qty' => $data['konversi_qty'] ?? null,
                             'hna' => $data['hna'] ?? null,
-                            'diskon_dimuka_persen' => $data['diskon_dimuka_persen'] ?? null,
-                            'diskon_dimuka_amount' => $data['diskon_dimuka_amount'] ?? null,
+                            // 'diskon_dimuka_persen' => $data['diskon_dimuka_persen'] ?? null,
+                            // 'diskon_dimuka_amount' => $data['diskon_dimuka_amount'] ?? null,
                             'diskon_persen_1' => $data['diskon_persen_1'] ?? null,
                             'diskon_ammount_1' => $data['diskon_ammount_1'] ?? null,
                             'diskon_persen_2' => $data['diskon_persen_2'] ?? null,
@@ -403,11 +403,36 @@ class UploadController extends Controller
             return response()->json(['message' => 'Data ' . $dataType . ' berhasil disimpan ke database.'], 200);
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('Gagal menyimpan data dari API: ' . $e->getMessage() . ' at line ' . $e->getLine());
+            Log::error('QueryException saat menyimpan data: ' . $e->getMessage() . ' at line ' . $e->getLine());
 
-            // Deteksi pesan error duplikat entry SQL
-            $duplicateEntryRegex = '/Duplicate entry \'([^\']+)\' for key \'([^\']+)\'/';
-            if (preg_match($duplicateEntryRegex, $e->getMessage(), $matches)) {
+            $userMessage = 'Terjadi kesalahan database.';
+            $errorMessage = $e->getMessage();
+            $columnName = null;
+            $incorrectValue = null;
+
+            // Pola untuk "Incorrect decimal value"
+            if (preg_match("/Incorrect decimal value: '([^']+)' for column '([^']+)'/", $errorMessage, $matches)) {
+                $incorrectValue = trim($matches[1]);
+                $columnName = $matches[2];
+                $userMessage = "Nilai desimal tidak valid: '{$incorrectValue}' untuk kolom '{$columnName}'. Pastikan format angka menggunakan titik sebagai pemisah desimal (misal: 20.00 atau 20000.50).";
+            }
+            // Pola untuk "Data too long"
+            else if (preg_match("/Data too long for column '([^']+)' at row \d+/", $errorMessage, $matches)) {
+                $columnName = $matches[1];
+                $userMessage = "Data terlalu panjang untuk kolom '{$columnName}'. Silakan perpendek nilai pada kolom tersebut.";
+            }
+            // Pola untuk "Column 'X' cannot be null"
+            else if (preg_match("/Column '([^']+)' cannot be null/", $errorMessage, $matches)) {
+                $columnName = $matches[1];
+                $userMessage = "Kolom '{$columnName}' tidak boleh kosong. Harap isi nilai untuk kolom ini.";
+            }
+            // Pola untuk "Out of range value"
+            else if (preg_match("/Out of range value for column '([^']+)' at row \d+/", $errorMessage, $matches)) {
+                $columnName = $matches[1];
+                $userMessage = "Nilai di luar jangkauan untuk kolom '{$columnName}'. Pastikan nilai yang dimasukkan sesuai dengan tipe data kolom.";
+            }
+            // Pola untuk "Duplicate entry"
+            else if (preg_match("/Duplicate entry '([^\']+)' for key '([^\']+)'/", $errorMessage, $matches)) {
                 $duplicateValue = $matches[1];
                 $keyName = $matches[2];
                 $fieldName = 'data';
@@ -419,37 +444,54 @@ class UploadController extends Controller
                     $fieldName = 'Master Customer';
                 }
                 $userMessage = "Gagal mengunggah data. Terdapat data duplikat untuk '{$duplicateValue}' pada kolom {$fieldName}. Pastikan {$fieldName} unik.";
-                return response()->json(['message' => $userMessage], 500);
+                return response()->json(['message' => $userMessage], 409); // 409 Conflict
+            }
+            // Pola untuk "Foreign key constraint fails"
+            else if (preg_match("/Cannot add or update a child row: a foreign key constraint fails \(`[^`]+`\.`[^`]+`, CONSTRAINT `[^`]+` FOREIGN KEY \(`([^`]+)`\)/", $errorMessage, $matches)) {
+                $columnName = $matches[1];
+                $userMessage = "Terdapat masalah dengan relasi data pada kolom '{$columnName}'. Pastikan nilai yang dimasukkan ada di tabel master yang terkait.";
+            }
+            // Fallback untuk QueryException lainnya yang mungkin menyebutkan kolom
+            else if (preg_match("/column '([^']+)'/i", $errorMessage, $matches)) {
+                $columnName = $matches[1];
+                $userMessage = "Terdapat masalah format atau tipe data pada kolom '{$columnName}'. Silakan periksa kembali nilai pada kolom tersebut.";
+            }
+            // Fallback umum jika tidak ada pola yang cocok
+            else {
+                $userMessage = 'Terjadi kesalahan database yang tidak terduga. Silakan periksa log server untuk detail lebih lanjut.';
             }
 
-            // Deteksi pesan error format tanggal Carbon
-            if ($e instanceof InvalidFormatException) {
-                $errorColumn = 'tanggal'; // Default
-                // Coba identifikasi kolom yang menyebabkan error berdasarkan pesan exception atau konteks
-                if (str_contains($e->getMessage(), 'expired_date')) {
-                    $errorColumn = 'expired_date';
-                } elseif (str_contains($e->getMessage(), 'tgl_terima_brg')) {
-                    $errorColumn = 'tgl_terima_brg';
-                } elseif (str_contains($e->getMessage(), 'tgl_faktur')) {
-                    $errorColumn = 'tgl_faktur';
-                } elseif (str_contains($e->getMessage(), 'exp_date')) {
-                    $errorColumn = 'exp_date';
-                } elseif (str_contains($e->getMessage(), 'tgl_transaksi')) {
-                    $errorColumn = 'tgl_transaksi';
-                }
+            return response()->json(['message' => $userMessage], 422); // 422 Unprocessable Entity
 
-                // Pesan error yang lebih jelas untuk ambiguitas YYYY-MM-DD
-                $userMessage = "Format tanggal tidak valid pada kolom '{$errorColumn}'. Pastikan format yang digunakan adalah 'Tahun-Bulan-Hari' (YYYY-MM-DD), contoh: 2025-07-15. Periksa kembali urutan Bulan dan Hari.";
-                return response()->json(['message' => $userMessage], 422);
+        } catch (InvalidFormatException $e) {
+            DB::rollBack();
+            Log::error('InvalidFormatException saat menyimpan data: ' . $e->getMessage() . ' at line ' . $e->getLine());
+
+            $errorColumn = 'tanggal';
+            if (str_contains($e->getMessage(), 'expired_date')) {
+                $errorColumn = 'expired_date';
+            } elseif (str_contains($e->getMessage(), 'tgl_terima_brg')) {
+                $errorColumn = 'tgl_terima_brg';
+            } elseif (str_contains($e->getMessage(), 'tgl_faktur')) {
+                $errorColumn = 'tgl_faktur';
+            } elseif (str_contains($e->getMessage(), 'exp_date')) {
+                $errorColumn = 'exp_date';
+            } elseif (str_contains($e->getMessage(), 'tgl_transaksi')) {
+                $errorColumn = 'tgl_transaksi';
             }
+
+            $userMessage = "Format tanggal tidak valid pada kolom '{$errorColumn}'. Pastikan format yang digunakan adalah 'Tahun-Bulan-Hari' (YYYY-MM-DD), contoh: 2025-07-15. Periksa kembali urutan Bulan dan Hari (misalnya, pastikan bulan tidak lebih dari 12, dan hari tidak lebih dari 31).";
+            return response()->json(['message' => $userMessage], 422);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Gagal menyimpan data dari API: ' . $e->getMessage() . ' at line ' . $e->getLine());
 
             // Tangani error header CSV
             if (str_contains($e->getMessage(), 'Header CSV tidak sesuai')) {
                 return response()->json(['message' => $e->getMessage()], 422);
             }
 
-            // Error umum lainnya
-            $userMessage = 'Terjadi kesalahan internal saat menyimpan data. Mungkin ada data yang tidak sesuai format yang diberikan.';
+            $userMessage = 'Terjadi kesalahan internal saat menyimpan data. Silakan periksa log server untuk detail lebih lanjut.';
             return response()->json(['message' => $userMessage], 500);
         }
     }
